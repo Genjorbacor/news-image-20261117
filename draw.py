@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Draw the entry image: a newspaper front page summing up Tuesday 17 November 2026.
+"""Draw the entry image, version 2: a newspaper front page summing up Tuesday 17 November 2026.
 
 Run: python3 draw.py  ->  writes entry.png (1024x1024, deterministic).
 Only Pillow and the system DejaVu fonts are used; nothing is fetched.
+Compared with v1: a much larger, dusk-lit hero scene of the Strait of Hormuz,
+bigger type, four stories in a 2x2 grid, and one line covering the rest.
 """
 import math
 import os
@@ -16,9 +18,6 @@ PAPER = (246, 241, 231)
 INK = (25, 25, 25)
 MUTED = (90, 86, 76)
 RED = (163, 22, 33)
-SEA = (29, 78, 107)
-SAND = (217, 201, 163)
-SAND_DARK = (199, 178, 132)
 
 FONT_DIR = "/usr/share/fonts/truetype/dejavu"
 
@@ -66,39 +65,54 @@ def starburst(draw, cx, cy, r_outer, r_inner, points, fill):
     draw.polygon(pts, fill=fill)
 
 
-def draw_strait(draw, box):
-    """A stylised Strait of Hormuz: sand on both shores, blue water, a tanker, a blast."""
+def lerp(a, b, t):
+    return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def draw_hero(draw, box):
+    """Dusk over the Strait of Hormuz: a burning tanker and a second tanker escaping."""
     x0, y0, x1, y1 = box
-    draw.rectangle(box, fill=SEA)
-    # northern shore (top) and southern shore (bottom) as sand polygons
-    draw.polygon([(x0, y0), (x1, y0), (x1, y0 + 26), (x0 + 620, y0 + 44),
-                  (x0 + 420, y0 + 22), (x0, y0 + 40)], fill=SAND)
-    draw.polygon([(x0, y1), (x1, y1), (x1, y1 - 24), (x0 + 560, y1 - 48),
-                  (x0 + 380, y1 - 22), (x0, y1 - 44)], fill=SAND_DARK)
-    # shipping lane dashes
-    mid = (y0 + y1) // 2 + 10
-    for x in range(x0 + 40, x1 - 40, 64):
-        draw.line([(x, mid), (x + 34, mid)], fill=(255, 255, 255), width=3)
-    # tanker silhouette, centre-left
-    tx, ty = x0 + 250, (y0 + y1) // 2 - 4
-    draw.rectangle([tx, ty, tx + 210, ty + 24], fill=(30, 30, 34))
-    draw.rectangle([tx + 30, ty - 15, tx + 60, ty], fill=(30, 30, 34))
-    draw.rectangle([tx + 150, ty - 9, tx + 172, ty], fill=(30, 30, 34))
-    draw.rectangle([tx, ty + 24, tx + 210, ty + 28], fill=RED)
-    # blast above the tanker, centre-right: spiky starburst + smoke
-    bx, by = tx + 300, ty - 26
-    starburst(draw, bx, by, 58, 30, 12, (255, 122, 26))
-    starburst(draw, bx, by, 40, 20, 10, (255, 176, 32))
-    starburst(draw, bx, by, 22, 11, 8, (255, 224, 130))
-    for cx, cy, r in [(bx - 62, by - 44, 14), (bx - 34, by - 58, 11),
-                      (bx + 56, by - 50, 13), (bx + 80, by - 28, 10)]:
-        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(96, 96, 100))
-    # small labels on the scene
-    lab = SANS_B(16)
-    draw.text((x0 + 22, y0 + 10), "IRAN", font=lab, fill=(90, 60, 20))
-    draw.text((x0 + 22, y1 - 30), "OMAN", font=lab, fill=(255, 255, 255))
-    draw.text((x1 - 196, mid + 26), "STRAIT OF HORMUZ", font=lab,
-              fill=(255, 255, 255))
+    horizon = y0 + 118
+    # sky: dusk gradient, deep blue at top to ember orange at the horizon
+    top, bottom = (24, 42, 74), (224, 110, 44)
+    for yy in range(y0, horizon):
+        t = (yy - y0) / max(1, horizon - y0)
+        draw.line([(x0, yy), (x1, yy)], fill=lerp(top, bottom, t))
+    # low sun
+    sx, sy = x0 + 700, horizon - 26
+    draw.ellipse([sx - 34, sy - 34, sx + 34, sy + 34], fill=(255, 214, 140))
+    draw.ellipse([sx - 46, sy - 46, sx + 46, sy + 46], outline=(255, 190, 110), width=2)
+    # sea: dark blue with lighter wave strokes
+    draw.rectangle([x0, horizon, x1, y1], fill=(16, 52, 84))
+    for yy in range(horizon + 14, y1 - 8, 18):
+        for xx in range(x0 + 30, x1 - 60, 130):
+            draw.line([(xx, yy), (xx + 44, yy)], fill=(64, 120, 158), width=2)
+    # distant headlands, left and right
+    draw.polygon([(x0, horizon), (x0 + 150, horizon), (x0 + 210, horizon - 34),
+                  (x0 + 60, horizon - 52), (x0, horizon - 30)], fill=(38, 44, 54))
+    draw.polygon([(x1, horizon), (x1 - 130, horizon), (x1 - 190, horizon - 28),
+                  (x1 - 70, horizon - 46), (x1, horizon - 26)], fill=(38, 44, 54))
+    # burning tanker, centre-left
+    tx, ty = x0 + 130, horizon + 66
+    draw.rectangle([tx, ty, tx + 300, ty + 34], fill=(18, 18, 22))
+    draw.rectangle([tx + 44, ty - 22, tx + 84, ty], fill=(18, 18, 22))
+    draw.rectangle([tx + 210, ty - 14, tx + 238, ty], fill=(18, 18, 22))
+    draw.rectangle([tx, ty + 34, tx + 300, ty + 40], fill=RED)
+    # big fire and smoke over the tanker
+    bx, by = tx + 210, ty - 30
+    starburst(draw, bx, by, 78, 40, 12, (255, 122, 26))
+    starburst(draw, bx, by, 54, 28, 10, (255, 176, 32))
+    starburst(draw, bx, by, 30, 15, 8, (255, 224, 130))
+    # second tanker sailing away, right
+    ux, uy = x0 + 640, horizon + 60
+    draw.rectangle([ux, uy, ux + 190, uy + 24], fill=(24, 28, 36))
+    draw.rectangle([ux + 26, uy - 16, ux + 56, uy], fill=(24, 28, 36))
+    draw.rectangle([ux + 120, uy - 10, ux + 142, uy], fill=(24, 28, 36))
+    # caption strip at the bottom of the panel
+    strip_h = 44
+    draw.rectangle([x0, y1 - strip_h, x1, y1], fill=(16, 16, 18))
+    cap = "THE STRAIT OF HORMUZ  \u2014  TANKERS ABLAZE AFTER U.S. STRIKES ON IRAN"
+    draw.text((x0 + 20, y1 - strip_h + 11), cap, font=SANS_B(21), fill=(255, 255, 255))
 
 
 def main():
@@ -112,13 +126,13 @@ def main():
     d.rectangle([28, 28, W - 29, H - 29], outline=INK, width=1)
 
     # ---- masthead ----
-    y = 44
+    y = 42
     kick = "THE WORLD IN ONE IMAGE"
-    f_kick = SERIF_B(50)
+    f_kick = SERIF_B(52)
     d.text(((W - d.textlength(kick, font=f_kick)) / 2, y), kick, font=f_kick, fill=INK)
-    y += 66
+    y += 68
     date = "TUESDAY  ·  17 NOVEMBER 2026"
-    f_date = SANS_B(24)
+    f_date = SANS_B(25)
     d.text(((W - d.textlength(date, font=f_date)) / 2, y), date, font=f_date, fill=RED)
     y += 38
     d.line([(mx, y), (W - mx, y)], fill=INK, width=3)
@@ -127,30 +141,24 @@ def main():
 
     # ---- lead headline + deck ----
     lead = "U.S. STRIKES IRAN AS TANKERS BURN IN THE STRAIT OF HORMUZ"
-    f_lead = SERIF_B(40)
-    lines = wrap(d, lead, f_lead, cw)
-    y = text_block(d, mx, y, lines, f_lead, INK, 50)
+    f_lead = SERIF_B(42)
+    y = text_block(d, mx, y, wrap(d, lead, f_lead, cw), f_lead, INK, 52)
     y += 6
-    deck = ("Warplanes hit missile sites on Qeshm Island after attacks on U.S. forces. "
-            "Oman evacuates 24 seafarers from a burning gas tanker as Trump says an "
-            "alleged \u201cdirty bomb\u201d plot is being taken seriously.")
-    f_deck = SERIF(22)
-    y = text_block(d, mx, y, wrap(d, deck, f_deck, cw), f_deck, MUTED, 28)
+    deck = ("Warplanes hit missile sites on Qeshm Island after attacks on U.S. forces, "
+            "and Oman evacuates 24 seafarers from a burning gas tanker.")
+    f_deck = SERIF(24)
+    y = text_block(d, mx, y, wrap(d, deck, f_deck, cw), f_deck, MUTED, 31)
     y += 12
 
-    # ---- picture panel ----
-    panel = (mx, y, W - mx, y + 160)
-    draw_strait(d, panel)
+    # ---- hero panel ----
+    panel = (mx, y, W - mx, y + 250)
+    draw_hero(d, panel)
     d.rectangle(panel, outline=INK, width=2)
-    y = panel[3] + 8
-    cap = "THE STRAIT OF HORMUZ, TUESDAY \u2014 A BURNING TANKER AFTER THE LATEST ATTACK"
-    f_cap = SANS(16)
-    d.text((mx, y), cap, font=f_cap, fill=MUTED)
-    y += 26
+    y = panel[3] + 14
     d.line([(mx, y), (W - mx, y)], fill=INK, width=2)
     y += 14
 
-    # ---- six stories, two columns x three rows ----
+    # ---- four stories, two columns x two rows ----
     stories = [
         ("UKRAINE", "Kerch Bridge hit again as a span falls into the sea",
          "Kyiv\u2019s drones strike for a second day; Moscow answers with attacks on Kyiv\u2019s bridges."),
@@ -159,27 +167,26 @@ def main():
         ("HEALTH", "America loses its measles-free status",
          "The first loss since 2000, after a year of uninterrupted spread, officials confirm."),
         ("TECHNOLOGY", "Outages ripple across airports, banks and Big Tech",
-         "Microsoft and Apple services falter and an NSA system goes dark; officials deny a cyberattack."),
-        ("MARKETS", "Nvidia spy scandal shadows record earnings",
-         "Its ex-chief is caught in an alleged Chinese agent case as Wall Street slides on tech."),
-        ("GAZA", "Winter rains deepen Gaza\u2019s shelter crisis",
-         "The UN warns flooding is destroying food and shelter as the West urges Israel to open crossings."),
+         "Apple and Microsoft falter, an NSA system goes dark; no cyberattack, officials say."),
     ]
     col_w = (cw - 32) // 2
-    row_h = 122
+    row_h = 140
     for i, (kicker, head, body) in enumerate(stories):
         col, row = i % 2, i // 2
         x = mx + col * (col_w + 32)
         yy = y + row * row_h
-        d.text((x, yy), kicker, font=SANS_B(18), fill=RED)
-        yy += 24
-        yy = text_block(d, x, yy, wrap(d, head, SERIF_B(24), col_w),
-                        SERIF_B(24), INK, 27)
-        yy = text_block(d, x, yy + 2, wrap(d, body, SANS(17), col_w),
-                        SANS(17), MUTED, 20)
-    y += 3 * row_h + 8
+        d.text((x, yy), kicker, font=SANS_B(20), fill=RED)
+        yy += 28
+        yy = text_block(d, x, yy, wrap(d, head, SERIF_B(27), col_w),
+                        SERIF_B(27), INK, 30)
+        yy = text_block(d, x, yy + 2, wrap(d, body, SANS(19), col_w),
+                        SANS(19), MUTED, 23)
+    y += 2 * row_h + 4
 
-    # ---- footer ----
+    # ---- also line + footer ----
+    also = "ALSO:  Nvidia spy scandal  ·  Gaza winter emergency  ·  Japan scrambles jets"
+    d.text((mx, y), also, font=SANS_B(17), fill=INK)
+    y += 24
     d.line([(mx, y), (W - mx, y)], fill=INK, width=1)
     foot = "SUMMED UP FROM TUESDAY\u2019S REPORTING  ·  17 NOVEMBER 2026"
     f_foot = SANS_B(17)
